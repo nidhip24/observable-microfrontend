@@ -1,0 +1,12 @@
+services:
+  contact-form:
+    build:
+      context: .
+    ports:
+      - "5002:5002"
+    environment:
+      - OTEL_SERVICE_NAME=ca.nk.contact.form
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_INSECURE=true
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true

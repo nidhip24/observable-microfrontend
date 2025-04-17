@@ -14,7 +14,15 @@ load_dotenv()
 
 # Setup logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
+
+# Add a basic stream handler
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
+logger.addHandler(handler)
+
+tracer = trace.get_tracer(__name__)
 
 # Create FastAPI app
 app = FastAPI()
@@ -31,34 +39,24 @@ app.add_middleware(
 # Email API route
 @app.post("/email")
 async def email(request: Request):
-    tracer = trace.get_tracer(__name__)
-    with tracer.start_as_current_span("send_email") as span:
-        try:
-            messageContents = await request.json()
-            span.set_attribute("email.subject", messageContents.get("subject", ""))
-            span.set_attribute("email.from", messageContents.get("email", "unknown"))
+    messageContents = await request.json()
+    message = Mail(
+        to_emails="os.environ.get('SENDGRID_TO_EMAIL')",
+        from_email=os.environ.get('SENDGRID_FROM_EMAIL'),
+        subject=messageContents["subject"],
+        html_content= f"{messageContents["message"]}<br />{messageContents["name"]}")
+    message.reply_to = messageContents["email"]
 
-            message = Mail(
-                to_emails=os.environ.get('SENDGRID_TO_EMAIL'),
-                from_email=os.environ.get('SENDGRID_FROM_EMAIL'),
-                subject=messageContents["subject"],
-                html_content=f'{messageContents["message"]}<br />{messageContents["name"]}'
-            )
-            message.reply_to = messageContents["email"]
-
-            sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-            response = sg.send(message)
-
-            logger.info("Email sent successfully.")
-            return {
-                "status_code": response.status_code,
-                "body": response.body.decode() if response.body else "",
-                "headers": dict(response.headers)
-            }
-
-        except Exception as e:
-            logger.error(f"Email sending failed: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to send email")
+    try:
+        logger.info("Sending email...")
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        
+        logger.info(f"Email sent with status code: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.exception(f"Email sending failed: {e}")
+        return e
 
 # Serve static files (the microfrontend build)
 app.mount("/", StaticFiles(directory="./dist", html=True), name="static")
