@@ -1,20 +1,35 @@
 export function SubscriberForm() {
-    return <form onSubmit={event => {
+  return (
+    <form
+      onSubmit={async (event) => {
         event.preventDefault();
         const formData = new FormData(event.target);
         const formObject = Object.fromEntries(formData.entries());
-        console.log(formObject);
-        const serviceUrl = import.meta.url.replace("index.js", "");
-        fetch(`${serviceUrl}email`, {method:"post", headers: {
-          "Content-Type": "application/json",
-          "Origin":location.origin
-        }, body:JSON.stringify(formObject)}).then((res)=>{
-          res.json().then((oResponse) => {
-            console.log(oResponse);
-            alert(`response: ${JSON.stringify(oResponse)}`);
+
+        try {
+          const response = await fetch('https://super-duper-space-zebra-gxj465wx7jghvp64-5002.app.github.dev/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formObject),
           });
-        })
-    }}>
+
+          if (response.ok) {
+            const responseData = await response.json();
+            if (responseData.status_code === 401) {
+              console.error('Error: Unauthorized access -', responseData.message || 'Authentication required');
+            } else {
+              console.log('Email sent successfully');
+            }
+          } else {
+            console.error('Failed to send email');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      }}
+    >
       <label>
         name
         <input name="name" placeholder="your name" />
@@ -36,4 +51,5 @@ export function SubscriberForm() {
       </label>
       <button type="submit">Send</button>
     </form>
+  );
 }
